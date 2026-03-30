@@ -25,5 +25,5 @@ test_groq.py
 gcal/token.json
 gcal/credentials.json
 
-/gmail/token.json
+/gmail/gmail_token.json
 
