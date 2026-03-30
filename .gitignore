@@ -23,3 +23,7 @@ test_groq.py
 .vscode/
 .idea/gcal/credentials.json
 gcal/token.json
+gcal/credentials.json
+
+/gmail/token.json
+
