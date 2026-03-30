@@ -3,7 +3,7 @@ import speech_recognition as sr
 recognizer = sr.Recognizer()
 recognizer.energy_threshold = 300
 recognizer.dynamic_energy_threshold = True
-recognizer.pause_threshold = 0.8
+recognizer.pause_threshold = 1.2
 
 def listen():
     with sr.Microphone() as source:
