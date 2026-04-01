@@ -131,7 +131,7 @@ while True:
             reply = fallback.content
 
         save_memory(user_input, reply)
-        chat_history.append(HumanMessage(content=reply))
+        chat_history.append(AIMessage(content=reply))
 
         if len(chat_history) > 20:
             chat_history = chat_history[-20:]
