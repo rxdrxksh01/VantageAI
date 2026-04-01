@@ -86,42 +86,7 @@ def read_unread_emails(max_results=5):
         emails.append(f"From: {sender}\nSubject: {subject}")
     return "\n---\n".join(emails)
 
-def search_emails(query, max_results=20):
-    service = get_gmail_service()
-    
-    # Try exact search first
-    results = service.users().messages().list(
-        userId="me",
-        maxResults=max_results,
-        q=query
-    ).execute()
-    
-    messages = results.get("messages", [])
-    
-    # If no results, try searching just the domain
-    if not messages and "rishihood" in query.lower():
-        results = service.users().messages().list(
-            userId="me",
-            maxResults=max_results,
-            q="from:rishihood.edu.in"
-        ).execute()
-        messages = results.get("messages", [])
 
-    if not messages:
-        return f"No emails found for: {query}"
-    
-    emails = []
-    for msg in messages:
-        full_msg = service.users().messages().get(
-            userId="me",
-            id=msg["id"],
-            format="full"
-        ).execute()
-        headers = full_msg["payload"]["headers"]
-        subject = next((h["value"] for h in headers if h["name"] == "Subject"), "No Subject")
-        sender = next((h["value"] for h in headers if h["name"] == "From"), "Unknown")
-        emails.append(f"From: {sender}\nSubject: {subject}")
-    return "\n---\n".join(emails)
 
 import re
 
@@ -148,29 +113,105 @@ def mask_sensitive_data(text):
         flags=re.IGNORECASE
     )
     return text
-def get_email_content(sender_query):
+def search_emails(query, max_results=20):
     service = get_gmail_service()
-    results = service.users().messages().list(
-        userId="me",
-        maxResults=5,
-        q=sender_query
-    ).execute()
-    messages = results.get("messages", [])
+    
+    # Try multiple search strategies
+    search_attempts = [
+        query,
+        f"from:rishihood.edu.in" if "rishihood" in query.lower() else query,
+        query.split()[0] if len(query.split()) > 1 else query,
+    ]
+    
+    messages = []
+    used_query = query
+    
+    for attempt in search_attempts:
+        try:
+            results = service.users().messages().list(
+                userId="me",
+                maxResults=max_results,
+                q=attempt
+            ).execute()
+            messages = results.get("messages", [])
+            if messages:
+                used_query = attempt
+                break
+        except:
+            continue
+    
     if not messages:
-        return "No emails found."
+        return f"No emails found for: {query}"
+    
+    emails = []
+    for msg in messages:
+        try:
+            full_msg = service.users().messages().get(
+                userId="me",
+                id=msg["id"],
+                format="full"
+            ).execute()
+            headers = full_msg["payload"]["headers"]
+            subject = next((h["value"] for h in headers if h["name"] == "Subject"), "No Subject")
+            sender = next((h["value"] for h in headers if h["name"] == "From"), "Unknown")
+            date = next((h["value"] for h in headers if h["name"] == "Date"), "")
+            emails.append(f"From: {sender}\nDate: {date}\nSubject: {subject}")
+        except:
+            continue
+    
+    return "\n---\n".join(emails)
 
+
+def get_email_content(query):
+    service = get_gmail_service()
+    
+    # Build smart search attempts from the query dynamically
+    words = query.lower().split()
+    search_attempts = [
+        query,                                    # exact query
+        f"from:{query}",                          # as sender
+        f"subject:{query}",                       # as subject
+        ' '.join(words[:2]) if len(words) > 2 else query,  # first 2 words
+        words[0],                                 # just first word
+    ]
+    
+    # If query looks like a domain or contains .edu .com etc
+    for word in words:
+        if '.' in word:
+            search_attempts.insert(0, f"from:{word}")
+    
+    messages = []
+    for attempt in search_attempts:
+        try:
+            results = service.users().messages().list(
+                userId="me",
+                maxResults=10,
+                q=attempt
+            ).execute()
+            messages = results.get("messages", [])
+            if messages:
+                break
+        except:
+            continue
+    
+    if not messages:
+        return f"No email found for: {query}"
+    
     full_msg = service.users().messages().get(
         userId="me",
         id=messages[0]["id"],
         format="full"
     ).execute()
-
+    
     headers = full_msg["payload"]["headers"]
     subject = next((h["value"] for h in headers if h["name"] == "Subject"), "No Subject")
     sender = next((h["value"] for h in headers if h["name"] == "From"), "Unknown")
+    date = next((h["value"] for h in headers if h["name"] == "Date"), "")
     body = get_email_body(full_msg)
-
-    # Mask sensitive data before returning
-    masked_body = mask_sensitive_data(body[:2000])
-
-    return f"From: {sender}\nSubject: {subject}\nContent: {masked_body}"
+    
+    if not body.strip():
+        body = full_msg.get("snippet", "No content found")
+    
+    masked_body = mask_sensitive_data(body[:3000])
+    
+    return f"From: {sender}\nDate: {date}\nSubject: {subject}\n\nContent:\n{masked_body}"
