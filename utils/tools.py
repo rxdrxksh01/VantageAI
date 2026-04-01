@@ -2,6 +2,10 @@ from langchain.tools import tool
 from gcal.google_cal import get_upcoming_events, create_event
 from gmail.gmail_reader import read_latest_emails, read_unread_emails, search_emails, get_email_content
 from memory.store import recall_memory, save_memory
+import os
+from dotenv import load_dotenv
+from tavily import TavilyClient
+load_dotenv()
 
 @tool
 def calendar_get_events() -> str:
@@ -49,3 +53,19 @@ def memory_search(query: str) -> str:
     query: what to search for in memory
     """
     return recall_memory(query)
+
+@tool
+def web_search(query: str) -> str:
+    """Search the web for current information, news, jobs, or anything not in memory.
+    Use when user asks about recent events, internships, news, or anything that needs live data.
+    query: what to search for
+    """
+    try:
+        client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+        results = client.search(query, max_results=3)
+        output = []
+        for r in results["results"]:
+            output.append(f"Title: {r['title']}\nSummary: {r['content'][:300]}")
+        return "\n---\n".join(output)
+    except Exception as e:
+        return f"Search failed: {e}"

@@ -11,7 +11,8 @@ from utils.tools import (
     gmail_read_unread,
     gmail_search,
     gmail_get_content,
-    memory_search
+    memory_search,
+    web_search
 )
 from memory.store import save_memory
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -32,7 +33,8 @@ tools = [
     gmail_read_unread,
     gmail_search,
     gmail_get_content,
-    memory_search
+    memory_search,
+    web_search
 ]
 
 agent = create_react_agent(llm, tools)
@@ -74,6 +76,8 @@ CALENDAR & EMAIL SAFETY
   Password: r******8
   OTP: 1***9
 """
+
+
 
 chat_history = []
 voice_mode = False
@@ -131,7 +135,7 @@ while True:
             reply = fallback.content
 
         save_memory(user_input, reply)
-        chat_history.append(AIMessage(content=reply))
+        chat_history.append(HumanMessage(content=reply))
 
         if len(chat_history) > 20:
             chat_history = chat_history[-20:]
